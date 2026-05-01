@@ -23,12 +23,14 @@ export function SimulationModule({ data }: { data: StatementData }) {
       : [{ id: '1', name: 'Home Expenses', amount: 60000 }];
   });
 
-  const [months, setMonths] = useState(6);
+  const [months, setMonths] = useState(120);
+  const [useManualSavings, setUseManualSavings] = useState(false);
+  const [manualSavings, setManualSavings] = useState(25000);
 
   const [allocations, setAllocations] = useState([
-    { id: '1', name: 'Equity (Mutual Funds)', rate: 12, percent: 50 },
-    { id: '2', name: 'Fixed Deposits', rate: 6.5, percent: 30 },
-    { id: '3', name: 'Gold', rate: 8, percent: 20 },
+    { id: '1', name: 'Stocks (Equity)', rate: 12, percent: 50 },
+    { id: '2', name: 'Bonds (Fixed Income)', rate: 6.5, percent: 30 },
+    { id: '3', name: 'Real Estate', rate: 8, percent: 20 },
   ]);
 
   const handleAddIncome = () => setIncomes(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), name: 'New Income', amount: 0 }]);
@@ -81,7 +83,8 @@ export function SimulationModule({ data }: { data: StatementData }) {
 
   const totalIncome = incomes.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpense = expenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const monthlySavings = totalIncome - totalExpense;
+  const calculatedSavings = totalIncome - totalExpense;
+  const monthlySavings = useManualSavings ? manualSavings : calculatedSavings;
   const totalPercent = allocations.reduce((acc, curr) => acc + curr.percent, 0);
   const unallocatedPercent = Math.max(0, 100 - totalPercent);
 
@@ -193,16 +196,35 @@ export function SimulationModule({ data }: { data: StatementData }) {
                 </div>
 
               <div className="pt-4 border-t border-white/5">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-400">Available to Invest / mo</span>
-                  <span className={`font-bold ${monthlySavings > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {formatCurrency(monthlySavings)}
-                  </span>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm font-medium text-blue-400">Monthly Savings Setup</span>
+                  <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                    <input type="checkbox" checked={useManualSavings} onChange={(e) => setUseManualSavings(e.target.checked)} className="accent-blue-500" />
+                    Set Manually
+                  </label>
                 </div>
-                {monthlySavings <= 0 && (
-                  <p className="text-xs text-amber-500 mt-2 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3"/> Expenses must be lower than income.
-                  </p>
+                {useManualSavings ? (
+                  <div className="flex items-center gap-2 group">
+                      <span className="text-sm text-gray-400 w-[45%]">Custom Amount</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                        <input type="number" value={manualSavings} onChange={(e) => setManualSavings(Number(e.target.value))} className="w-full bg-[#141414] border border-blue-500/30 rounded pl-5 pr-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"/>
+                      </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-400">Available to Invest / mo</span>
+                      <span className={`font-bold ${calculatedSavings > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatCurrency(calculatedSavings)}
+                      </span>
+                    </div>
+                    {calculatedSavings <= 0 && (
+                      <p className="text-xs text-amber-500 mt-2 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3"/> Expenses must be lower than income.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
@@ -284,12 +306,14 @@ export function SimulationModule({ data }: { data: StatementData }) {
                 <input 
                   type="range" 
                   min="1" 
-                  max="60" 
+                  max="360" 
                   value={months} 
                   onChange={(e) => setMonths(Number(e.target.value))}
                   className="w-24 accent-blue-500"
                 />
-                <span className="text-xs font-medium text-white w-8">{months}m</span>
+                <span className="text-xs font-medium text-white w-14 text-right">
+                  {months >= 12 ? `${Math.floor(months/12)}y ${months%12}m` : `${months}m`}
+                </span>
               </div>
             </CardHeader>
             <CardContent className="flex-1 min-h-[400px]">
