@@ -1,0 +1,6 @@
+{
+  "name": "ExpenseAI",
+  "description": "Personal AI-powered household and expense management dashboard. Upload your bank statements to get visual charts and savings insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
