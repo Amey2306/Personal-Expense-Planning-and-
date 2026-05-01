@@ -13,6 +13,7 @@ export function PlanningModule() {
   const [currentGross, setCurrentGross] = useState(2000000); // 20 LPA
   const [incrementSteps, setIncrementSteps] = useState([1.10, 1.15, 1.20, 1.25, 1.30]);
   const [taxRate, setTaxRate] = useState(20); // 20% tax / deductions roughly (Net 80%)
+  const [annualDeductions, setAnnualDeductions] = useState(150000); // Flat annual deductions
 
   // Loan EMIs State
   const [loanAmount, setLoanAmount] = useState(4000000);
@@ -24,18 +25,20 @@ export function PlanningModule() {
     return incrementSteps.map(multiplier => {
       const gross = currentGross * multiplier;
       const perMonthGross = gross / 12;
-      const netMonthly = perMonthGross * (1 - taxRate / 100);
+      const netYearlyAfterTaxes = (gross * (1 - taxRate / 100)) - annualDeductions;
+      const netMonthly = netYearlyAfterTaxes / 12;
       const incrementValue = (gross - currentGross) / 12;
       
       return {
         multiplier,
         gross,
         perMonthGross,
-        netMonthly,
+        netYearlyAfterTaxes: Math.max(0, netYearlyAfterTaxes),
+        netMonthly: Math.max(0, netMonthly),
         incrementValue,
       };
     });
-  }, [currentGross, incrementSteps, taxRate]);
+  }, [currentGross, incrementSteps, taxRate, annualDeductions]);
 
   // Loan Amortization Calculation
   const loanSchedule = useMemo(() => {
@@ -91,7 +94,7 @@ export function PlanningModule() {
              onClick={() => setActiveTab('salary')}
              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-colors", activeTab === 'salary' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white')}
           >
-            Salary / Hourly
+            Salary & Taxes
           </button>
           <button 
              onClick={() => setActiveTab('loan')}
@@ -123,17 +126,34 @@ export function PlanningModule() {
                     />
                   </div>
                </div>
-               <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Net Take Home % (After Taxes)</label>
-                  <div className="relative">
-                    <input 
-                      type="number" 
-                      value={100 - taxRate}
-                      onChange={(e) => setTaxRate(100 - Number(e.target.value))}
-                      className="w-full bg-[#141414] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
-                  </div>
+               <div className="pt-4 border-t border-white/5 space-y-4">
+                 <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
+                   <Calculator className="w-4 h-4" /> Tax & Deductions Simulation
+                 </h4>
+                 <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Effective Tax Rate (%)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        value={taxRate}
+                        onChange={(e) => setTaxRate(Number(e.target.value))}
+                        className="w-full bg-[#141414] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                    </div>
+                 </div>
+                 <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Other Annual Deductions (Flat)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                      <input 
+                        type="number" 
+                        value={annualDeductions}
+                        onChange={(e) => setAnnualDeductions(Number(e.target.value))}
+                        className="w-full bg-[#141414] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                 </div>
                </div>
                <div className="pt-4 border-t border-white/5 mt-4">
                   <h4 className="text-sm font-medium text-white mb-3">Hourly Rate Breakdown</h4>
@@ -141,6 +161,10 @@ export function PlanningModule() {
                      <div className="flex justify-between">
                        <span>Per Month Gross</span>
                        <span className="text-white">{formatCurrency(currentGross / 12)}</span>
+                     </div>
+                     <div className="flex justify-between text-emerald-400/80">
+                       <span>Per Month Net</span>
+                       <span>{formatCurrency(((currentGross * (1 - taxRate / 100)) - annualDeductions) / 12)}</span>
                      </div>
                      <div className="flex justify-between">
                        <span>Per Day (approx 22 days)</span>
@@ -165,6 +189,7 @@ export function PlanningModule() {
                     <tr>
                       <th className="px-4 py-3 font-medium">Increment %</th>
                       <th className="px-4 py-3 font-medium">Gross Yearly</th>
+                      <th className="px-4 py-3 font-medium text-emerald-400">Net Yearly</th>
                       <th className="px-4 py-3 font-medium">Gross Monthly</th>
                       <th className="px-4 py-3 font-medium text-emerald-400">Net Monthly (Take Home)</th>
                       <th className="px-4 py-3 font-medium text-blue-400">Monthly Increment +</th>
@@ -175,6 +200,7 @@ export function PlanningModule() {
                        <tr key={idx} className="hover:bg-white/[0.02] transition-colors cursor-default">
                          <td className="px-4 py-4 font-medium text-white">{(proj.multiplier * 100).toFixed(0)}%</td>
                          <td className="px-4 py-4">{formatCurrency(proj.gross)}</td>
+                         <td className="px-4 py-4 font-bold text-emerald-400">{formatCurrency(proj.netYearlyAfterTaxes)}</td>
                          <td className="px-4 py-4">{formatCurrency(proj.perMonthGross)}</td>
                          <td className="px-4 py-4 font-bold text-emerald-400">{formatCurrency(proj.netMonthly)}</td>
                          <td className="px-4 py-4 text-blue-400">{proj.incrementValue > 0 ? '+' : ''}{formatCurrency(proj.incrementValue)}</td>

@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { DashboardLayout } from './components/DashboardLayout';
 import { ExpensesModule } from './components/ExpensesModule';
-import { BudgetModule } from './components/BudgetModule';
-import { IncomeModule } from './components/IncomeModule';
+import { GoalsModule } from './components/GoalsModule';
 import { SimulationModule } from './components/SimulationModule';
 import { PlanningModule } from './components/PlanningModule';
 import { UploadDropzone } from './components/UploadDropzone';
@@ -13,8 +12,7 @@ import { cn } from './lib/utils';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-  { id: 'income', label: 'Income', icon: TrendingUp },
-  { id: 'budget', label: 'Budget/Expense', icon: Target },
+  { id: 'goals', label: 'Goals', icon: Target },
   { id: 'simulation', label: 'Simulate', icon: FastForward },
   { id: 'planning', label: 'Plan', icon: Briefcase },
   { id: 'expenses', label: 'Explorer', icon: Receipt },
@@ -187,7 +185,7 @@ export default function App() {
                           Upload & AI Analyze
                       </button>
                       <button 
-                          onClick={() => scrollToSection('income')}
+                          onClick={() => scrollToSection('goals')}
                           className="px-8 py-3.5 bg-transparent border border-white/20 text-white font-semibold rounded-full hover:bg-white/5 transition-all flex items-center gap-2"
                       >
                           Start Manually
@@ -198,12 +196,8 @@ export default function App() {
            <DashboardLayout data={data} />
         </section>
         
-        <section id="income" className="scroll-mt-32">
-            <IncomeModule data={data} />
-        </section>
-
-        <section id="budget" className="scroll-mt-32">
-            <BudgetModule data={data} />
+        <section id="goals" className="scroll-mt-32">
+            <GoalsModule data={data} />
         </section>
 
         <section id="simulation" className="scroll-mt-32">
