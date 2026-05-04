@@ -5,9 +5,10 @@ import { ExpensesModule } from './components/ExpensesModule';
 import { GoalsModule } from './components/GoalsModule';
 import { SimulationModule } from './components/SimulationModule';
 import { PlanningModule } from './components/PlanningModule';
+import { YearlyPlannerModule } from './components/YearlyPlannerModule';
 import { UploadDropzone } from './components/UploadDropzone';
 import { processStatement, StatementData } from './lib/gemini';
-import { AlertCircle, Activity, LayoutDashboard, Receipt, Target, TrendingUp, FastForward, Briefcase, Plus, X, Upload, Loader2, Sparkles } from 'lucide-react';
+import { AlertCircle, Activity, LayoutDashboard, Receipt, Target, TrendingUp, FastForward, Briefcase, Calendar, Plus, X, Upload, Loader2, Sparkles } from 'lucide-react';
 import { cn } from './lib/utils';
 
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'simulation', label: 'Simulate', icon: FastForward },
   { id: 'planning', label: 'Plan', icon: Briefcase },
+  { id: 'yearly', label: 'Timeline', icon: Calendar },
   { id: 'expenses', label: 'Explorer', icon: Receipt },
 ];
 
@@ -206,6 +208,10 @@ export default function App() {
 
         <section id="planning" className="scroll-mt-32">
             <PlanningModule />
+        </section>
+
+        <section id="yearly" className="scroll-mt-32">
+            <YearlyPlannerModule data={data} />
         </section>
 
         <section id="expenses" className="scroll-mt-32 pt-8 border-t border-white/5">

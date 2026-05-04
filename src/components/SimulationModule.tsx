@@ -7,10 +7,17 @@ import { FastForward, Plus, Trash2, TrendingUp, Wallet, AlertTriangle, ArrowDown
 const formatCurrency = (val: number) => 
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
+interface IncomeStream {
+  id: string;
+  name: string;
+  amount: number;
+  growth: number;
+}
+
 interface Scenario {
   id: string;
   name: string;
-  incomeGrowth: number;
+  incomes: IncomeStream[];
   expenseInflation: number;
   useManualSavings: boolean;
   manualSavings: number;
@@ -21,11 +28,11 @@ interface Scenario {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e'];
 
 export function SimulationModule({ data }: { data: StatementData }) {
-  const [incomes, setIncomes] = useState(() => {
+  const [incomes, setIncomes] = useState<IncomeStream[]>(() => {
     // initialize from statement data if available, or default
     return data.summary.totalIncome > 0 
-      ? [{ id: '1', name: 'Salary', amount: data.summary.totalIncome }]
-      : [{ id: '1', name: 'Salary', amount: 100000 }];
+      ? [{ id: '1', name: 'Salary', amount: data.summary.totalIncome, growth: 5 }]
+      : [{ id: '1', name: 'Salary', amount: 100000, growth: 5 }];
   });
 
   const [expenses, setExpenses] = useState(() => {
@@ -37,7 +44,6 @@ export function SimulationModule({ data }: { data: StatementData }) {
   const [months, setMonths] = useState(120);
   const [useManualSavings, setUseManualSavings] = useState(false);
   const [manualSavings, setManualSavings] = useState(25000);
-  const [incomeGrowth, setIncomeGrowth] = useState(5);
   const [expenseInflation, setExpenseInflation] = useState(6);
 
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -49,14 +55,14 @@ export function SimulationModule({ data }: { data: StatementData }) {
     { id: '3', name: 'Real Estate', rate: 8, percent: 20 },
   ]);
 
-  const handleAddIncome = () => setIncomes(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), name: 'New Income', amount: 0 }]);
+  const handleAddIncome = () => setIncomes(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), name: 'New Income', amount: 0, growth: 5 }]);
   const handleRemoveIncome = (id: string) => setIncomes(prev => prev.filter(i => i.id !== id));
-  const updateIncome = (id: string, field: string, value: string) => {
+  const updateIncome = (id: string, field: keyof IncomeStream, value: string) => {
     setIncomes(prev => prev.map(i => {
       if (i.id === id) {
         if (field === 'name') return { ...i, name: value };
-        const num = parseInt(value, 10);
-        return { ...i, amount: isNaN(num) ? 0 : num };
+        const num = parseFloat(value);
+        return { ...i, [field]: isNaN(num) ? 0 : num };
       }
       return i;
     }));
@@ -107,27 +113,34 @@ export function SimulationModule({ data }: { data: StatementData }) {
   const projectionData = useMemo(() => {
     const projection = [];
     
-    let currentMonthlyIncome = totalIncome;
+    // Copy incomes to track their individual growth
+    let currentIncomes = incomes.map(inc => ({ ...inc }));
     let currentMonthlyExpense = totalExpense;
 
     // Track state for each scenario
     const scenStates = scenarios.map(s => ({
       ...s,
-      currentIncome: s.totalIncome,
+      currentIncomes: s.incomes.map(inc => ({ ...inc })),
       currentExpense: s.totalExpense,
     }));
 
     for (let m = 1; m <= months; m++) {
       if (m > 1 && m % 12 === 1) { // Apply annual growth at the start of each new year
-        currentMonthlyIncome *= (1 + incomeGrowth / 100);
+        currentIncomes.forEach(inc => {
+          inc.amount *= (1 + inc.growth / 100);
+        });
         currentMonthlyExpense *= (1 + expenseInflation / 100);
 
         scenStates.forEach(s => {
-          s.currentIncome *= (1 + s.incomeGrowth / 100);
+          s.currentIncomes.forEach(inc => {
+            inc.amount *= (1 + inc.growth / 100);
+          });
           s.currentExpense *= (1 + s.expenseInflation / 100);
         });
       }
       
+      let currentMonthlyIncome = currentIncomes.reduce((acc, curr) => acc + curr.amount, 0);
+
       let currentSavings = currentMonthlyIncome - currentMonthlyExpense;
       if(useManualSavings) currentSavings = manualSavings;
 
@@ -142,7 +155,8 @@ export function SimulationModule({ data }: { data: StatementData }) {
 
       if (compareScenarios) {
         scenStates.forEach((s, idx) => {
-          let sSav = s.currentIncome - s.currentExpense;
+          let sInc = s.currentIncomes.reduce((acc, curr) => acc + curr.amount, 0);
+          let sSav = sInc - s.currentExpense;
           if (s.useManualSavings) sSav = s.manualSavings;
           dataPoint[`${s.name} Savings`] = Math.max(0, Math.round(sSav));
         });
@@ -152,13 +166,13 @@ export function SimulationModule({ data }: { data: StatementData }) {
     }
     
     return projection;
-  }, [totalIncome, totalExpense, useManualSavings, manualSavings, months, incomeGrowth, expenseInflation, scenarios, compareScenarios]);
+  }, [incomes, totalExpense, useManualSavings, manualSavings, months, expenseInflation, scenarios, compareScenarios]);
 
   const handleSaveScenario = () => {
     const newScen: Scenario = {
       id: Math.random().toString(36).substr(2, 9),
       name: `Scenario ${scenarios.length + 1}`,
-      incomeGrowth,
+      incomes,
       expenseInflation,
       useManualSavings,
       manualSavings,
@@ -198,12 +212,16 @@ export function SimulationModule({ data }: { data: StatementData }) {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col overflow-hidden">
                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
-                  {incomes.map(inc => (
+                   {incomes.map(inc => (
                      <div key={inc.id} className="flex items-center gap-2 group">
-                         <input type="text" value={inc.name} onChange={(e) => updateIncome(inc.id, 'name', e.target.value)} className="w-[45%] bg-[#141414] border border-white/10 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="Source"/>
+                         <input type="text" value={inc.name} onChange={(e) => updateIncome(inc.id, 'name', e.target.value)} className="w-[35%] bg-[#141414] border border-white/10 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="Source"/>
                          <div className="relative flex-1">
                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
                            <input type="number" value={inc.amount} onChange={(e) => updateIncome(inc.id, 'amount', e.target.value)} className="w-full bg-[#141414] border border-white/10 rounded pl-6 pr-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"/>
+                         </div>
+                         <div className="relative w-[20%]">
+                           <input type="number" value={inc.growth} onChange={(e) => updateIncome(inc.id, 'growth', e.target.value)} className="w-full bg-[#141414] border border-white/10 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="Growth"/>
+                           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]">%</span>
                          </div>
                          <button onClick={() => handleRemoveIncome(inc.id)} className="text-red-400 opacity-0 group-hover:opacity-100 p-1">
                             <Trash2 className="w-4 h-4"/>
@@ -212,10 +230,6 @@ export function SimulationModule({ data }: { data: StatementData }) {
                   ))}
                </div>
                <div className="mt-4 pt-4 border-t border-white/5 bg-[#141414] p-3 rounded-lg border border-white/5 space-y-3">
-                 <div className="flex justify-between items-center text-xs text-gray-400">
-                   <span>Annual Growth (%)</span>
-                   <input type="number" value={incomeGrowth} onChange={(e) => setIncomeGrowth(Number(e.target.value))} className="w-16 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-right text-white focus:outline-none focus:border-emerald-500"/>
-                 </div>
                  <div className="flex justify-between items-center">
                    <span className="text-sm font-medium text-gray-400">Total Income</span>
                    <span className="text-base font-bold text-emerald-400">{formatCurrency(totalIncome)}</span>
@@ -432,7 +446,7 @@ export function SimulationModule({ data }: { data: StatementData }) {
                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                        <div className="flex flex-col">
                          <span className="text-xs font-medium text-white">{scen.name}</span>
-                         <span className="text-[10px] text-gray-500">Income: {scen.incomeGrowth}% | Infl: {scen.expenseInflation}%</span>
+                         <span className="text-[10px] text-gray-500">Streams: {scen.incomes.length} | Infl: {scen.expenseInflation}%</span>
                        </div>
                        <button onClick={() => removeScenario(scen.id)} className="ml-2 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
                          <Trash2 className="w-3 h-3" />
